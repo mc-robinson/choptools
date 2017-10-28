@@ -10,8 +10,7 @@ usage: python test_pdb2zmat.py
 """
 import os
 
-test_list = [['CA5.pdb','UNK'],
-                ['RT_1.pdb','L11'],
+test_list = [['RT_1.pdb','L11'],
                     ['rt_2.pdb','LIG']]
 
 for l in test_list:
@@ -21,7 +20,7 @@ for l in test_list:
     os.system('mv pdb_files/' + pdb + ' ./')
 
     try:
-        os.system('python ../lib/pdb2zmat.py -p ' + pdb + ' -r ' + lig + ' -c 18.0')
+        os.system('python ../choptools/pdb2zmat.py -p ' + pdb + ' -r ' + lig + ' -c 18.0')
         print('succeeded on ' + pdb)
     except:
         print('failed on' + pdb)
