@@ -25,18 +25,15 @@
 #       
 ######################################################################################################################################
 
-
-
- 
 ### ********************** INPUT PARAMETERS *********************************
 
 # List of Inputs to perform the calculation
 # Do not edit unless you know what you are doing
 # Please see the bottom of the file for more detailed instructions
 
-complexPDB = ''#'1wbv.pdb'
-ligandZmatOrig = ''#'benzene.z'
-ligandResidueName = ''#'LI3'
+complexPDB = '' #'1wbv.pdb'
+ligandZmatOrig = '' #'benzene.z'
+ligandResidueName = '' #'LI3'
 
 ligandLstToRemoveFromPDB = [] #recommend you start this empty, so I need to get rid of these to start
 residueToBeTheCenterOfTheChopping = '' #'LI3'   # Normally the ligand
@@ -64,7 +61,6 @@ import argparse
 
 def runPropka(originalPDB,HipLstOfResidues):
     #run propka on the original protein
-
 
     #try:
     os.system('propka31 ' + originalPDB)
@@ -248,7 +244,8 @@ def protonateLigandWithChimera(namePDBLigand):
     chimeraScriptFile.close()
 
     #cmd = '/Applications/Chimera.app/Contents/Resources/bin/chimera --nogui protonate.cmd'
-    cmd = 'chimera --nogui protonate.cmd'
+    # cmd = 'chimera --nogui protonate.cmd'
+    cmd = ('babel %s -O %s -p' % (namePDBLigand,namePDBLigand_protonated))
 
     os.system(cmd)
 
@@ -777,7 +774,7 @@ if __name__ == "__main__":
     checkParameters()
 
     if args.zmat:
-        _,resnumber, resnumberLigandOriginal = generateLigandPDB(complexPDB,ligandResidueName)
+        _, resnumber, resnumberLigandOriginal = generateLigandPDB(complexPDB,ligandResidueName)
         ligandZmat = fixDummyAtomNamesDirect(ligandZmatOrig)
 
     else:
