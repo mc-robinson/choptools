@@ -16,7 +16,6 @@
 # Requirements:
 #       BOSS
 #       MCPRO
-#       Chimera
 #       Reduce executable (http://kinemage.biochem.duke.edu/software/reduce.php)
 #       Propka-3.1 executable (https://github.com/jensengroup/propka-3.1)
 #       Anaconda Python 3.6
@@ -62,11 +61,11 @@ import argparse
 def runPropka(originalPDB,HipLstOfResidues):
     #run propka on the original protein
 
-    #try:
-    os.system('propka31 ' + originalPDB)
-    #except:
-        #print('propka failed')
-        #return ''
+    try:
+    	os.system('propka31 ' + originalPDB)
+    except:
+        print('propka failed on the command:', ('propka31 ' + originalPDB))
+        sys.exit()
 
     propka_output_name = complexPDB[:-4]+'.pka'
 
@@ -110,7 +109,10 @@ def makeHisLists(originalPDB,complexPDB,HipLstOfResidues,HidLstOfResidues):
 
     # run reduce on the protein
     #subprocess.call("reduce –build " + pdb_name + " > " + pdb_name[:-4]+ "_h.pdb", shell=True)
-    os.system("reduce -Build %s > %s" % (pdb_name, pdb_out))
+    try:
+    	os.system("reduce -Build %s > %s" % (pdb_name, pdb_out))
+    except:
+    	print("reduce failed on the command:", ("reduce -Build %s > %s" % (pdb_name, pdb_out)))
         
     
     #read in the protein with biopandas
@@ -227,27 +229,25 @@ def generateLigandPDB(complex,ligandName):
     return namePDBLigand,ligandResnumber,ligandResnumberOriginal#,complexPDBfixName
     
 
-chimeraScript='''open aaaa
-addh
-write 0 bbbb
+def protonateLigandWithBabel(namePDBLigand):
 
-'''
-
-def protonateLigandWithChimera(namePDBLigand):
-
-    print('Protonating ligand with Chimera')
+    print('Protonating ligand with Babel')
 
     namePDBLigand_protonated = namePDBLigand[:-4]+'_h.pdb'
 
-    chimeraScriptFile = open('protonate.cmd','w')
-    chimeraScriptFile.write(chimeraScript.replace('aaaa',namePDBLigand).replace('bbbb',namePDBLigand_protonated))
-    chimeraScriptFile.close()
+    # chimeraScriptFile = open('protonate.cmd','w')
+    # chimeraScriptFile.write(chimeraScript.replace('aaaa',namePDBLigand).replace('bbbb',namePDBLigand_protonated))
+    # chimeraScriptFile.close()
 
     #cmd = '/Applications/Chimera.app/Contents/Resources/bin/chimera --nogui protonate.cmd'
     # cmd = 'chimera --nogui protonate.cmd'
     cmd = ('babel %s -O %s -p' % (namePDBLigand,namePDBLigand_protonated))
 
-    os.system(cmd)
+    try:
+    	os.system(cmd)
+    except:
+    	print("babel failed to perform the command:", cmd)
+    	sys.exit()
 
     return namePDBLigand_protonated 
 
@@ -319,7 +319,7 @@ def prepareLigandZmatrix(complex,ligandName,mcproPath,BOSSscriptsPath):
 
     namePDBLigand, ligandResnumber, ligandResnumberOriginal = generateLigandPDB(complex,ligandName)
 
-    namePDBLigand_protonated = protonateLigandWithChimera(namePDBLigand)
+    namePDBLigand_protonated = protonateLigandWithBabel(namePDBLigand)
 
     cmd = BOSSscriptsPath+'/xPDBMCP '+namePDBLigand_protonated[:-4]
 
@@ -732,7 +732,6 @@ if __name__ == "__main__":
     REQUIREMENTS:
     BOSS (need to set BOSSdir in bashrc and cshrc)
     MCPRO (need to set MCPROdir in bashrc and cshrc)
-    Chimera
     reduce executable (from Richardson lab)
     propka-3.1 executable (from Jensen lab)
     Preferably Anaconda python 3.6 with following modules:
