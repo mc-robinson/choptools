@@ -24,33 +24,6 @@
 #       
 ######################################################################################################################################
 
-### ********************** INPUT PARAMETERS *********************************
-
-# List of Inputs to perform the calculation
-# Do not edit unless you know what you are doing
-# Please see the bottom of the file for more detailed instructions
-
-complexPDB = '' #'1wbv.pdb'
-ligandZmatOrig = '' #'benzene.z'
-ligandResidueName = '' #'LI3'
-
-ligandLstToRemoveFromPDB = [] #recommend you start this empty, so I need to get rid of these to start
-residueToBeTheCenterOfTheChopping = '' #'LI3'   # Normally the ligand
-setCapOriginAtom = '' #'LI3'  # LIGAND name ex. 'LI3'   
-setCutOffSize = '' #'18.0'
-HipLstOfResidues = []  # resnumber, Chain ex. ['77a','56b'] #optional
-#HieLstOfResidues = []  # resnumber, Chain this the default!!! original code wrong
-HidLstOfResidues = []
-
-titleOfYourSystem = '' # optional
-
-fixBackBoneSelection = [] #['4 67 70 74 110 144 152 153'] # If you have a lot of residues split the selection in different lines
-
-### ********************** END OF INPUT PARAMETERS *********************************
-
-
-
-
 import os
 import sys
 import subprocess
@@ -58,16 +31,136 @@ from biopandas.pdb import PandasPdb
 import pandas as pd
 import argparse
 
+def main():
+
+    # create parser object
+    parser = argparse.ArgumentParser(
+        prog='pdb2zmatConrotGenerator_mcr.py',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description="""
+    Automatic Zmatrix script generator for BOSS and MCPRO 
+
+    @author: Israel Cabeza de Vaca Lopez, israel.cabezadevaca@yale.edu   
+    @author: Matthew Robinson, matthew.robinson@yale.edu
+    @author: Yue Qian, yue.qian@yale.edu
+    @author: William L. Jorgensen Lab 
+
+    Example usage: python pdb2zmat.py -p 4WR8_ABC_3TX.pdb -r 3TX -c 18.0
+
+    Or, if you already have an optimized z-matrix:
+
+    Usage: python pdb2zmat.py -p 4WR8_ABC_3TX.pdb -z 3TX_h.z -r 3TX -c 18.0
+    
+    REQUIREMENTS:
+    BOSS (need to set BOSSdir in bashrc and cshrc)
+    MCPRO (need to set MCPROdir in bashrc and cshrc)
+    reduce executable (from Richardson lab)
+    propka-3.1 executable (from Jensen lab)
+    Preferably Anaconda python 3.6 with following modules:
+    pandas 
+    biopandas
+    """
+    )
+
+    #defining arguments for parser object
+    parser.add_argument(
+        "-p", "--pdb", help="name of the PDB file for the complex - i.e., [complex_name].pdb")
+    parser.add_argument(
+        "-z", "--zmat", help="name of the zmat of the ligand with .z file descriptor. \
+        only need this if want to import the optimized ligand zmat yourself.")
+    parser.add_argument(
+        "-r", "--resname", help="Residue name of the ligand from PDB FILE", type=str)
+    parser.add_argument(
+        "-c", "--cutoff", help="Size of the cutoff for chop to cut", type=str)
+
+    #parse the arguments from standard input
+    args = parser.parse_args()
+
+    fixedComplexPDB, ligandZmat = prepare_complex(args.zmat, args.pdb, args.resname, args.cutoff)
+
+    prepare_zmats(ligandZmat, fixedComplexPDB, args.resname)
+
+def prepare_complex(zmat_arg, pdb_arg, resname_arg, cutoff_arg):
+
+    # preliminary definitions 
+    # please only change these if you know what you are doing!
+
+    complexPDB = '' #'1wbv.pdb'
+    ligandZmatOrig = '' #'benzene.z'
+    ligandResidueName = '' #'LI3'
+
+    ligandLstToRemoveFromPDB = [] #recommend you start this empty, so I need to get rid of these to start
+    residueToBeTheCenterOfTheChopping = '' #'LI3'   # Normally the ligand
+    setCapOriginAtom = '' #'LI3'  # LIGAND name ex. 'LI3'   
+    setCutOffSize = '' #'18.0'
+
+    titleOfYourSystem = '' # optional
+
+    fixBackBoneSelection = [] #['4 67 70 74 110 144 152 153'] # If you have a lot of residues split the selection in different lines
+
+    if zmat_arg:
+        ligandZmatOrig = str(zmat_arg)
+
+    if pdb_arg:
+        complexPDB = str(pdb_arg)
+
+    if resname_arg:
+        ligandResidueName = str(resname_arg)
+        residueToBeTheCenterOfTheChopping = str(resname_arg) 
+        setCapOriginAtom = 'c01'#str(args.resname)
+
+    if cutoff_arg:
+        setCutOffSize = str(cutoff_arg)
+
+    # *********************** CODE STARTS *********************************************
+
+    checkParameters(complexPDB)
+
+    if zmat_arg:
+        _, resnumber, resnumberLigandOriginal = generateLigandPDB(complexPDB,ligandResidueName)
+        ligandZmat = fixDummyAtomNamesDirect(ligandZmatOrig)
+
+    else:
+        ligandZmat,resnumber,resnumberLigandOriginal = prepareLigandZmatrix(complexPDB,ligandResidueName,mcproPath,BOSSscriptsPath)
+
+
+    #remove solvent
+    no_solvent_PDB = removeSolvent(complexPDB)
+
+    #change Chain ID of ligand
+    fixedComplexPDB = fixPDBprotein(complexPDB,ligandResidueName)
+
+
+    print('MERGE')
+    mergeLigandWithPDBProtein(mcproPath,fixedComplexPDB,ligandZmat,resnumberLigandOriginal)
+
+    #get histdine lists before chopping
+    #can also comment this section out if desired
+
+    HipLstOfResidues = []  # resnumber, Chain ex. ['77a','56b'] #optional
+    #HieLstOfResidues = []  # resnumber, Chain this the default!!! original code wrong
+    HidLstOfResidues = []
+
+    HipLstOfResidues, HidLstOfResidues = makeHisLists(pdb_arg,fixedComplexPDB,HipLstOfResidues,HidLstOfResidues)
+    print(HipLstOfResidues)
+    print(HidLstOfResidues)
+
+    print('CHOP')
+    prepareReducedChopped(fixedComplexPDB,ligandLstToRemoveFromPDB,residueToBeTheCenterOfTheChopping,setCapOriginAtom,setCutOffSize,HipLstOfResidues,HidLstOfResidues)
+
+    return fixedComplexPDB, ligandZmat
+
+
 def runPropka(originalPDB,HipLstOfResidues):
     #run propka on the original protein
 
     try:
-    	os.system('propka31 ' + originalPDB)
+        os.system('propka31 ' + originalPDB)
     except:
         print('propka failed on the command:', ('propka31 ' + originalPDB))
         sys.exit()
 
-    propka_output_name = complexPDB[:-4]+'.pka'
+    propka_output_name = originalPDB[:-4]+'.pka'
 
     #read propka output
     with open(propka_output_name) as propka_output:
@@ -110,9 +203,9 @@ def makeHisLists(originalPDB,complexPDB,HipLstOfResidues,HidLstOfResidues):
     # run reduce on the protein
     #subprocess.call("reduce –build " + pdb_name + " > " + pdb_name[:-4]+ "_h.pdb", shell=True)
     try:
-    	os.system("reduce -Build %s > %s" % (pdb_name, pdb_out))
+        os.system("reduce -Build %s > %s" % (pdb_name, pdb_out))
     except:
-    	print("reduce failed on the command:", ("reduce -Build %s > %s" % (pdb_name, pdb_out)))
+        print("reduce failed on the command:", ("reduce -Build %s > %s" % (pdb_name, pdb_out)))
         
     
     #read in the protein with biopandas
@@ -176,7 +269,7 @@ def makeHisLists(originalPDB,complexPDB,HipLstOfResidues,HidLstOfResidues):
 
     return HipLstOfResidues, HidLstOfResidues     
 
-def checkParameters():
+def checkParameters(complexPDB):
 
     if not mcproPath:
         print('Define MCPROdir enviroment variable, please')
@@ -244,10 +337,10 @@ def protonateLigandWithBabel(namePDBLigand):
     cmd = ('babel %s -O %s -p' % (namePDBLigand,namePDBLigand_protonated))
 
     try:
-    	os.system(cmd)
+        os.system(cmd)
     except:
-    	print("babel failed to perform the command:", cmd)
-    	sys.exit()
+        print("babel failed to perform the command:", cmd)
+        sys.exit()
 
     return namePDBLigand_protonated 
 
@@ -331,7 +424,7 @@ def prepareLigandZmatrix(complex,ligandName,mcproPath,BOSSscriptsPath):
 
     return ligandZmat,ligandResnumber,ligandResnumberOriginal#,complexPDBfixName
 
-def mergeLigandWithPDBProtein(mcproPath,complexPDB,ligandResidueName,resnumber):
+def mergeLigandWithPDBProtein(mcproPath,complexPDB,ligandZmat,resnumber):
     #clu -t:s=5001 2be2.pdb -r r22_h.z -n 2be2_cplx.pdb
 
     print('Merging ligand with PDB Protein')
@@ -427,6 +520,107 @@ def prepareReducedChopped(complexPDB,ligandLstToRemoveFromPDB,residueToBeTheCent
 
     os.system('csh chopScript.csh')
 
+def removeSolvent(complexPDB):
+
+    print('REMOVING SOLVENT (HOH, SO4, GOL)')
+
+    fileoutName = complexPDB[:-4]+'_no_solvent.pdb'
+
+    ppdb = PandasPdb().read_pdb(complexPDB)
+
+    ppdb.df['ATOM'] = ppdb.df['ATOM'][ppdb.df['ATOM']['residue_name'] != 'HOH']
+    ppdb.df['ATOM'] = ppdb.df['ATOM'][ppdb.df['ATOM']['residue_name'] != 'SO4']
+    ppdb.df['ATOM'] = ppdb.df['ATOM'][ppdb.df['ATOM']['residue_name'] != 'GOL']
+    ppdb.df['HETATM'] = ppdb.df['HETATM'][ppdb.df['HETATM']['residue_name'] != 'HOH']
+    ppdb.df['HETATM'] = ppdb.df['HETATM'][ppdb.df['HETATM']['residue_name'] != 'SO4']
+    ppdb.df['HETATM'] = ppdb.df['HETATM'][ppdb.df['HETATM']['residue_name'] != 'GOL']
+
+    ppdb.to_pdb(path=fileoutName, 
+            records=None, 
+            gz=False, 
+            append_newline=True)
+    
+    return fileoutName
+
+def fixPDBprotein(complexPDB,ligandResidueName):
+
+    print('Fixing PDB')
+
+    # remove chain in the ligand to avoid errors
+
+    fileoutName = complexPDB[:-4]+'_fixed.pdb'
+
+    fileout = open(fileoutName,'w')
+
+    for line in open(complexPDB[:-4]+'_no_solvent.pdb'):
+        newLine = line
+        if ligandResidueName in line:
+            newLine = line[:21]+' '+line[22:]
+        fileout.write(newLine)
+
+    fileout.close()
+    
+    return fileoutName
+
+def prepare_zmats(zmat_arg, pdb_arg, resname_arg):
+
+    # preliminary definitions 
+    # please only change these if you know what you are doing!
+
+    fixedComplexPDB = '' # it should look like name_fixed.pdb
+    ligandZmat = '' #'benzene.z'
+
+    titleOfYourSystem = '' # optional
+    fixBackBoneSelection = [] #['4 67 70 74 110 144 152 153'] # If you have a lot of residues split the selection in different lines
+
+    if zmat_arg:
+        ligandZmat = str(zmat_arg)
+
+    if pdb_arg:
+        fixedComplexPDB = str(pdb_arg)
+
+    if resname_arg:
+        ligandResidueName = str(resname_arg)
+
+    # *********************** CODE STARTS *********************************************
+
+
+    print('PREPARING Z-MATRICES')
+
+    # first delete the metals from the PDB file
+    checkMetals(fixedComplexPDB)
+
+    prepareFinalZmatrixWithPEPz(fixedComplexPDB,titleOfYourSystem,ligandZmat,fixBackBoneSelection)
+
+    createZmatrices(fixedComplexPDB,ligandResidueName)
+
+    relaxProteinLigand(fixedComplexPDB,mcproPath)
+
+    generateFinalStructuresWithCAP(fixedComplexPDB) 
+
+    #do some file management
+    manageFiles(pdb_arg,resname_arg)   
+
+def checkMetals(fixedComplexPDB):
+
+    print('Checking for Metals')
+
+    ### THIS SHOULD BE HETATM I THINK ###
+    ppdb = PandasPdb().read_pdb(fixedComplexPDB)
+    hetatm_df = ppdb.df['HETATM']
+
+    # could make this a for loop with the delete lists
+    MG_count = hetatm_df[hetatm_df['residue_name']=='MG'].count()
+    MN_count = hetatm_df[hetatm_df['residue_name']=='MN'].count()
+    CA_count = hetatm_df[hetatm_df['residue_name']=='MN'].count()
+    ZN_count = hetatm_df[hetatm_df['residue_name']=='ZN'].count()
+
+    if (MG_count['residue_name'] != 0) or (MN_count['residue_name'] != 0) or (CA_count['residue_name'] != 0) or (ZN_count['residue_name'] != 0):
+        print("METAL FOUND IN PDB, Z-MATRIX NOT AVAILABLE UNLESS YOU DELETE METAL AND RESUBMIT. \
+            'CHOPPED' PDB IS ALREADY AVAILABLE IF THAT IS ALL USER REQUIRES.")
+        sys.exit()
+
+
 def getNumberOfTheLastResidueOfTheChoppedSystem(choppedPDBName):
     
     resNumber = ''
@@ -435,8 +629,7 @@ def getNumberOfTheLastResidueOfTheChoppedSystem(choppedPDBName):
         if 'ATOM' in line[:6] or 'HETATM' in line[:6]:
             resNumber = line.split()[4]
 
-    return resNumber    
-
+    return resNumber 
 
 def prepareFinalZmatrixWithPEPz(complexPDB,titleOfYourSystem,ligandZmat,fixBackBoneSelection):
 
@@ -524,7 +717,14 @@ def fixZmatrix(matrixZ,ligandResidueName):
 
     tmpfile = open('tmp.txt','w')
 
-    be2allFile = [ele for ele in open(matrixZ)]
+    try: 
+        be2allFile = [ele for ele in open(matrixZ)]
+    except:
+        print("FAILED TO MAKE Z-MATRICES. PLEASE CHECK ABOVE ERROR MESSAGES. \n \
+        (likely you have hetatoms that failed with BOSS) \n \
+        NOTE THAT THE 'CHOPPED' PDB IS ALREADY PREPARED IF THAT IS ALL YOU DESIRE")
+        sys.exit()
+
     
     for iter in range(len(be2allFile)):
         newLine = be2allFile[iter]
@@ -616,49 +816,10 @@ def generateFinalStructuresWithCAP(complexPDB):
     os.system('cp '+complexPDBName+'cap.z '+ complexPDBName+'capcon.z finalZmatrices')
 
 
-def removeSolvent(complexPDB):
 
-    print('Removing Solvent')
-
-    fileoutName = complexPDB[:-4]+'_no_solvent.pdb'
-
-    ppdb = PandasPdb().read_pdb(complexPDB)
-    atom_df = ppdb.df['ATOM']
-
-    # could make this a for loop with the delete lists
-    atom_df = atom_df[atom_df['residue_name'] != 'HOH']
-    atom_df = atom_df[atom_df['residue_name'] != 'SO4']
-
-    ppdb.to_pdb(path=fileoutName, 
-            records=None, 
-            gz=False, 
-            append_newline=True)
-    
-    return fileoutName
-
-def fixPDBprotein(complexPDB,ligandResidueName):
-
-    print('Fixing PDB')
-
-    # remove chain in the ligand to avoid errors
-
-    fileoutName = complexPDB[:-4]+'_fixed.pdb'
-
-    fileout = open(fileoutName,'w')
-
-    for line in open(complexPDB[:-4]+'_no_solvent.pdb'):
-        newLine = line
-        if ligandResidueName in line:
-            newLine = line[:21]+' '+line[22:]
-        fileout.write(newLine)
-
-    fileout.close()
-    
-    return fileoutName
-
-def manageFiles():
-    pdb_id = pdb_id = os.path.splitext(os.path.basename(args.pdb))[0]
-    ligand_id = str(args.resname).lower()
+def manageFiles(original_pdb, ligand_resname):
+    pdb_id = pdb_id = os.path.splitext(os.path.basename(original_pdb))[0]
+    ligand_id = str(ligand_resname).lower()
 
     try:
         os.makedirs(pdb_id + '_files')
@@ -708,107 +869,9 @@ if __name__ == "__main__":
     # get paths of needed dirs
     mcproPath = os.environ.get('MCPROdir')
     BOSSPath = os.environ.get('BOSSdir')
-
     BOSSscriptsPath = os.path.join(BOSSPath,'scripts')
 
-    # create parser object
-    parser = argparse.ArgumentParser(
-        prog='pdb2zmatConrotGenerator_mcr.py',
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        description="""
-    Automatic Zmatrix script generator for BOSS and MCPRO 
-
-    @author: Israel Cabeza de Vaca Lopez, israel.cabezadevaca@yale.edu   
-    @author: Matthew Robinson, matthew.robinson@yale.edu
-    @author: Yue Qian, yue.qian@yale.edu
-    @author: William L. Jorgensen Lab 
-
-    Example usage: python pdb2zmat.py -p 4WR8_ABC_3TX.pdb -r 3TX -c 18.0
-
-    Or, if you already have an optimized z-matrix:
-
-    Usage: python pdb2zmat.py -p 4WR8_ABC_3TX.pdb -z 3TX_h.z -r 3TX -c 18.0
-    
-    REQUIREMENTS:
-    BOSS (need to set BOSSdir in bashrc and cshrc)
-    MCPRO (need to set MCPROdir in bashrc and cshrc)
-    reduce executable (from Richardson lab)
-    propka-3.1 executable (from Jensen lab)
-    Preferably Anaconda python 3.6 with following modules:
-    pandas 
-    biopandas
-    """
-    )
-
-    #defining arguments for parser object
-    parser.add_argument(
-        "-p", "--pdb", help="name of the PDB file for the complex - i.e., [complex_name].pdb")
-    parser.add_argument(
-        "-z", "--zmat", help="name of the zmat of the ligand with .z file descriptor. \
-        only need this if want to import the optimized ligand zmat yourself.")
-    parser.add_argument(
-        "-r", "--resname", help="Residue name of the ligand from PDB FILE", type=str)
-    parser.add_argument(
-        "-c", "--cutoff", help="Size of the cutoff for chop to cut", type=str)
-
-    #parse the arguments from standard input
-    args = parser.parse_args()
-
-    if args.zmat:
-        ligandZmatOrig = str(args.zmat)
-
-    if args.pdb:
-        complexPDB = str(args.pdb)
-
-    if args.resname:
-        ligandResidueName = str(args.resname)
-        residueToBeTheCenterOfTheChopping = str(args.resname) 
-        setCapOriginAtom = 'c01'#str(args.resname)
-
-    if args.cutoff:
-        setCutOffSize = str(args.cutoff)
-
-    #  *********************** CODE STARTS *********************************************
-
-    checkParameters()
-
-    if args.zmat:
-        _, resnumber, resnumberLigandOriginal = generateLigandPDB(complexPDB,ligandResidueName)
-        ligandZmat = fixDummyAtomNamesDirect(ligandZmatOrig)
-
-    else:
-        ligandZmat,resnumber,resnumberLigandOriginal = prepareLigandZmatrix(complexPDB,ligandResidueName,mcproPath,BOSSscriptsPath)
-
-
-    #remove solvent
-    no_solvent_PDB = removeSolvent(complexPDB)
-
-    #change Chain ID of ligand
-    fixedComplexPDB = fixPDBprotein(complexPDB,ligandResidueName)
-
-
-    print('MERGE')
-    mergeLigandWithPDBProtein(mcproPath,fixedComplexPDB,ligandZmat,resnumberLigandOriginal)
-
-    #get histdine lists before chopping
-    #can also comment this section out if desired
-    HipLstOfResidues, HidLstOfResidues = makeHisLists(args.pdb, fixedComplexPDB,HipLstOfResidues,HidLstOfResidues)
-    print(HipLstOfResidues)
-    print(HidLstOfResidues)
-
-    print('CHOP')
-    prepareReducedChopped(fixedComplexPDB,ligandLstToRemoveFromPDB,residueToBeTheCenterOfTheChopping,setCapOriginAtom,setCutOffSize,HipLstOfResidues,HidLstOfResidues)
-
-    print('FINAL')
-    prepareFinalZmatrixWithPEPz(fixedComplexPDB,titleOfYourSystem,ligandZmat,fixBackBoneSelection)
-
-    createZmatrices(fixedComplexPDB,ligandResidueName)
-
-    relaxProteinLigand(fixedComplexPDB,mcproPath)
-
-    generateFinalStructuresWithCAP(fixedComplexPDB)
-
-    #do some file management
-    manageFiles()
+    # run the main function
+    main()
 
     
