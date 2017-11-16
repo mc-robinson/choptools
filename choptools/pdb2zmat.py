@@ -78,6 +78,7 @@ def main():
 
     fixedComplexPDB, ligandZmat = prepare_complex(args.zmat, args.pdb, args.resname, args.cutoff)
 
+    # note that prepare_zmats takes in the FIXED PDB
     prepare_zmats(ligandZmat, fixedComplexPDB, args.resname)
 
 def prepare_complex(zmat_arg, pdb_arg, resname_arg, cutoff_arg):
@@ -115,6 +116,8 @@ def prepare_complex(zmat_arg, pdb_arg, resname_arg, cutoff_arg):
     # *********************** CODE STARTS *********************************************
 
     checkParameters(complexPDB)
+
+    checkMultipleLigands(complexPDB,ligandResidueName)
 
     if zmat_arg:
         _, resnumber, resnumberLigandOriginal = generateLigandPDB(complexPDB,ligandResidueName)
@@ -286,6 +289,22 @@ def checkParameters(complexPDB):
     if not os.path.isfile(complexPDB):
         print('PDB not found ......    ',complexPDB)
         sys.exit()
+
+def checkMultipleLigands(complexPDB,ligandResidueName):
+
+    ppdb = PandasPdb()
+    ppdb.read_pdb(complexPDB) 
+    atom_df = ppdb.df['ATOM']
+    hetatm_df = ppdb.df['HETATM']
+
+    # get only information about the ligand
+    lig_df = hetatm_df.loc[hetatm_df['residue_name'] == ligandResidueName]
+
+    # check if lig_df contains multiple chain ids(means we have multiple ligands)
+    if lig_df.chain_id.nunique() > 1:
+        print("THERE IS MORE THAN COPY OF THE DESIRED LIGAND. PLEASE DELETE EXTRAS")
+        sys.exit()
+
 
 def generateLigandPDB(complex,ligandName):
 
@@ -818,7 +837,7 @@ def generateFinalStructuresWithCAP(complexPDB):
 
 
 def manageFiles(original_pdb, ligand_resname):
-    pdb_id = pdb_id = os.path.splitext(os.path.basename(original_pdb))[0]
+    pdb_id = pdb_id = os.path.splitext(os.path.basename(original_pdb))[0][:6] # [-6] gets rid of '_fixed', which is used in zmat section
     ligand_id = str(ligand_resname).lower()
 
     try:
@@ -828,8 +847,12 @@ def manageFiles(original_pdb, ligand_resname):
         print('folders already made')
         pass
 
-    #move the pdb files
+    #move the pdb files (for some reaosn fixed is in the name here)
     pdb_output_files = [filename for filename in os.listdir('.') if filename.startswith(pdb_id)]
+    # pdb_output_files.append(pdb_id + '.pdb')
+    # pdb_output_files.append(pdb_id + '.pka')
+    # pdb_output_files.append(pdb_id + '_no_solvent.pdb')
+    # pdb_output_files.append(pdb_id + '.propka_input')
     #remove the folder name
     if (pdb_id + '_files') in pdb_output_files:
         pdb_output_files.remove(pdb_id + '_files')
