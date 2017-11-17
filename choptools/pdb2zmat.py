@@ -72,16 +72,18 @@ def main():
         "-r", "--resname", help="Residue name of the ligand from PDB FILE", type=str)
     parser.add_argument(
         "-c", "--cutoff", help="Size of the cutoff for chop to cut", type=str)
+    parser.add_argument(
+        "-t", "--tautomerize", help="Automatically assign Histidine Tautomerization states", action="store_true")
 
     #parse the arguments from standard input
     args = parser.parse_args()
 
-    fixedComplexPDB, ligandZmat = prepare_complex(args.zmat, args.pdb, args.resname, args.cutoff)
+    fixedComplexPDB, ligandZmat = prepare_complex(args.zmat, args.pdb, args.resname, args.cutoff, args.tautomerize)
 
     # note that prepare_zmats takes in the FIXED PDB
     prepare_zmats(ligandZmat, fixedComplexPDB, args.resname)
 
-def prepare_complex(zmat_arg, pdb_arg, resname_arg, cutoff_arg):
+def prepare_complex(zmat_arg, pdb_arg, resname_arg, cutoff_arg, his_arg):
 
     # preliminary definitions 
     # please only change these if you know what you are doing!
@@ -142,13 +144,15 @@ def prepare_complex(zmat_arg, pdb_arg, resname_arg, cutoff_arg):
     #get histdine lists before chopping
     #can also comment this section out if desired
 
+
     HipLstOfResidues = []  # resnumber, Chain ex. ['77a','56b'] #optional
     #HieLstOfResidues = []  # resnumber, Chain this the default!!! original code wrong
     HidLstOfResidues = []
+    if his_arg:
 
-    HipLstOfResidues, HidLstOfResidues = makeHisLists(pdb_arg,fixedComplexPDB,HipLstOfResidues,HidLstOfResidues)
-    print(HipLstOfResidues)
-    print(HidLstOfResidues)
+        HipLstOfResidues, HidLstOfResidues = makeHisLists(pdb_arg,fixedComplexPDB,HipLstOfResidues,HidLstOfResidues)
+        print(HipLstOfResidues)
+        print(HidLstOfResidues)
 
     print('CHOP')
     prepareReducedChopped(fixedComplexPDB,ligandLstToRemoveFromPDB,residueToBeTheCenterOfTheChopping,setCapOriginAtom,setCutOffSize,HipLstOfResidues,HidLstOfResidues)
