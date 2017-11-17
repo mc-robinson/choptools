@@ -209,8 +209,12 @@ def runPropka(originalPDB,HipLstOfResidues):
     propka_output_name = originalPDB[:-4]+'.pka'
 
     #read propka output
-    with open(propka_output_name) as propka_output:
-        pka_data = propka_output.readlines()
+    try:
+        with open(propka_output_name) as propka_output:
+            pka_data = propka_output.readlines()
+    except:
+        print('PROPKA FAILED ON THIS PROTEIN')
+        return
 
     #get only the pKa data
     for i in range(len(pka_data)):
