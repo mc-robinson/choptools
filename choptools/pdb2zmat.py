@@ -119,6 +119,8 @@ def prepare_complex(zmat_arg, pdb_arg, resname_arg, cutoff_arg):
 
     checkMultipleLigands(complexPDB,ligandResidueName)
 
+    changeLigandResidueNumber(complexPDB,ligandResidueName)
+
     if zmat_arg:
         _, resnumber, resnumberLigandOriginal = generateLigandPDB(complexPDB,ligandResidueName)
         ligandZmat = fixDummyAtomNamesDirect(ligandZmatOrig)
@@ -152,6 +154,47 @@ def prepare_complex(zmat_arg, pdb_arg, resname_arg, cutoff_arg):
     prepareReducedChopped(fixedComplexPDB,ligandLstToRemoveFromPDB,residueToBeTheCenterOfTheChopping,setCapOriginAtom,setCutOffSize,HipLstOfResidues,HidLstOfResidues)
 
     return fixedComplexPDB, ligandZmat
+
+def changeLigandResidueNumber(complexPDB, ligandName):
+    
+    print('CHANGING LIGAND RESIDUE NUMBER') #needs to be 100 to work with Clu
+
+    # Read in the file
+    with open(complexPDB, 'r') as pdb_file:
+        pdb_data = pdb_file.readlines()
+
+    with open('original_'+complexPDB, 'w') as file:
+        file.writelines(pdb_data)
+
+    # Replace the res number with 100 for clu to work
+    # Replace the res number with 100 for clu to work
+    idx = 0
+    for line in pdb_data:
+        if 'ATOM' in line[:7] or 'HETATM' in line[:7]:
+            if ligandName in line:
+
+                newLine = line[:21]+' '+line[22:] #get rid of chain ID
+                resnumber = newLine[12:29].split()[2]
+                ligandResnumber = resnumber
+                if int(resnumber)<=999:
+                    ligandResnumber = '100'
+                    newLine = newLine[:23] + '100' + newLine[26:]
+                    #pdbLigandFile.write(newLine.replace(resnumber,ligandResnumber))
+                elif int(resnumber)>999:
+                    ligandResnumber = ' 100'
+                    newLine = newLine[:22] + ' 100' + newLine[26:]
+                    # pdbLigandFile.write(newLine.replace(resnumber,ligandResnumber))
+            else:
+                newLine = line
+        else:
+            newLine = line
+
+        pdb_data[idx] = newLine
+        idx = idx + 1
+
+    # Write the file out again
+    with open(complexPDB, 'w') as file:
+        file.writelines(pdb_data)
 
 
 def runPropka(originalPDB,HipLstOfResidues):
@@ -327,10 +370,14 @@ def generateLigandPDB(complex,ligandName):
                 ligandResnumberOriginal = resnumber
                 if int(resnumber)<=999:
                     ligandResnumber = '100'
-                    pdbLigandFile.write(newLine.replace(resnumber,ligandResnumber))
+                    newLine = newLine[:23] + '100' + newLine[26:]
+                    #pdbLigandFile.write(newLine.replace(resnumber,ligandResnumber))
+                    pdbLigandFile.write(newLine)
                 elif int(resnumber)>999:
                     ligandResnumber = ' 100'
-                    pdbLigandFile.write(newLine.replace(resnumber,ligandResnumber))
+                    newLine = newLine[:22] + '0100' + newLine[26:]
+                    # pdbLigandFile.write(newLine.replace(resnumber,ligandResnumber))
+                    pdbLigandFile.write(newLine)
                 else:
                     pdbLigandFile.write(newLine)
 
@@ -454,6 +501,7 @@ def mergeLigandWithPDBProtein(mcproPath,complexPDB,ligandZmat,resnumber):
     
     if os.path.isfile(outputPDB): os.remove(outputPDB)
 
+    # THIS RESNUMBER MUST BE THE SAME AS BEOFRE 
     cmd = clu + ' -t:s='+resnumber+' '+complexPDB+' -r '+ligandZmat+' -n '+outputPDB
 
     print(cmd)
@@ -837,7 +885,7 @@ def generateFinalStructuresWithCAP(complexPDB):
 
 
 def manageFiles(original_pdb, ligand_resname):
-    pdb_id = pdb_id = os.path.splitext(os.path.basename(original_pdb))[0][:6] # [-6] gets rid of '_fixed', which is used in zmat section
+    pdb_id = pdb_id = os.path.splitext(os.path.basename(original_pdb))[0][:-6] # [:-6] gets rid of '_fixed', which is used in zmat section
     ligand_id = str(ligand_resname).lower()
 
     try:
