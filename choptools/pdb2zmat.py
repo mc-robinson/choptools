@@ -673,6 +673,8 @@ def prepare_zmats(zmat_arg, pdb_arg, resname_arg):
 
     generateFinalStructuresWithCAP(fixedComplexPDB) 
 
+    addProteinBonds(fixedComplexPDB)
+
     #do some file management
     manageFiles(pdb_arg,resname_arg)   
 
@@ -889,6 +891,71 @@ def generateFinalStructuresWithCAP(complexPDB):
 
     os.system('cp CG9/optsum finalZmatrices/'+complexPDBName+'all.z')   
     os.system('cp '+complexPDBName+'cap.z '+ complexPDBName+'capcon.z finalZmatrices')
+
+def addProteinBonds(complexPDB):
+    ### based on the BONDADD.f script by Yue and Jonah ###
+
+    complexPDBName = complexPDB[:-4]
+
+    # read the all zmat in as optzmat
+    with open('finalZmatrices/'+complexPDBName+'all.z') as optzmat:
+        optzmat_data = optzmat.readlines()
+    with open('finalZmatrices/'+complexPDBName+'capcon.z') as varzmat:
+        varzmat_data = varzmat.readlines()
+
+    # find relevant indicies to parse only important part of z-matrices
+    line_index = 0
+    for line in optzmat_data:
+
+        if 'Tot. E' in line:
+            first_atom_index = line_index+1
+        if 'TERZ' in line:
+            last_atom_index = line_index
+            break # so that we only get first TERZ
+        line_index = line_index + 1
+
+    line_index = 0
+    for line in optzmat_data:
+        if 'Variable Bonds follow' in line:
+            variable_bonds_index = line_index
+        if 'Additional Bonds follow' in line:
+            additional_bonds_index = line_index
+            break
+        line_index = line_index + 1
+
+    # Get the atom numbers in the "variable bonds follow" list
+    variable_atom_number_list = []
+    for line in optzmat_data[variable_bonds_index:additional_bonds_index+1]:
+        variable_atom_number_list.append(line[0:4])
+
+    print(variable_atom_number_list)
+
+    # now check which lines these are connected to in the top of the zmat
+    atom_pairs_list = []
+    for line in optzmat_data[first_atom_index:last_atom_index]:
+        print(line[0:4],line[19:23])
+        if line[0:4] in variable_atom_number_list:
+            connected_atom = line[19:23]
+            new_string = line[0:4] + connected_atom
+            atom_pairs_list.append(new_string+'\n')
+
+    print(atom_pairs_list)
+
+    # now add these pairs of atoms into the additional bonds of varzmat
+    line_index = 0
+    for line in varzmat_data:
+
+        if 'Additional Bonds follow' in line:
+            add_index = line_index
+
+        line_index = line_index + 1
+
+    varzmat_data = varzmat_data[:add_index+1] + atom_pairs_list + varzmat_data[add_index+1:]
+
+    output_filename = 'finalZmatrices/'+complexPDBName+'_final_capcon_zmat.z'
+    with open(output_filename,'w') as output_file:
+        for line in varzmat_data:
+            output_file.write(line)
 
 
 
