@@ -663,11 +663,11 @@ def prepare_zmats(zmat_arg, pdb_arg, resname_arg):
     print('PREPARING Z-MATRICES')
 
     # first delete the metals from the PDB file
-    checkMetals(fixedComplexPDB)
+    checkMetals(fixedComplexPDB, pdb_arg, resname_arg)
 
     prepareFinalZmatrixWithPEPz(fixedComplexPDB,titleOfYourSystem,ligandZmat,fixBackBoneSelection)
 
-    createZmatrices(fixedComplexPDB,ligandResidueName)
+    createZmatrices(fixedComplexPDB,ligandResidueName, pdb_arg, resname_arg)
 
     relaxProteinLigand(fixedComplexPDB,mcproPath)
 
@@ -678,7 +678,7 @@ def prepare_zmats(zmat_arg, pdb_arg, resname_arg):
     #do some file management
     manageFiles(pdb_arg,resname_arg)   
 
-def checkMetals(fixedComplexPDB):
+def checkMetals(fixedComplexPDB, pdb_arg, resname_arg):
 
     print('Checking for Metals')
 
@@ -695,6 +695,7 @@ def checkMetals(fixedComplexPDB):
     if (MG_count['residue_name'] != 0) or (MN_count['residue_name'] != 0) or (CA_count['residue_name'] != 0) or (ZN_count['residue_name'] != 0):
         print("METAL FOUND IN PDB, Z-MATRIX NOT AVAILABLE UNLESS YOU DELETE METAL AND RESUBMIT. \
             'CHOPPED' PDB IS ALREADY AVAILABLE IF THAT IS ALL USER REQUIRES.")
+        manageFiles(pdb_arg, resname_arg)
         sys.exit()
 
 
@@ -788,7 +789,7 @@ def prepareFinalZmatrixWithPEPz(complexPDB,titleOfYourSystem,ligandZmat,fixBackB
 
     tmpfile.close()
 
-def fixZmatrix(matrixZ,ligandResidueName):
+def fixZmatrix(matrixZ,ligandResidueName, pdb_arg, resname_arg):
 
     print('Fixing Z matrix TERZ .... ',matrixZ)
 
@@ -800,6 +801,7 @@ def fixZmatrix(matrixZ,ligandResidueName):
         print("FAILED TO MAKE Z-MATRICES. PLEASE CHECK ABOVE ERROR MESSAGES. \n \
         (likely you have hetatoms that failed with BOSS) \n \
         NOTE THAT THE 'CHOPPED' PDB IS ALREADY PREPARED IF THAT IS ALL YOU DESIRE")
+        manageFiles(pdb_arg, resname_arg)
         sys.exit()
 
     
@@ -819,7 +821,7 @@ def fixZmatrix(matrixZ,ligandResidueName):
     os.system('cp '+matrixZ+' lll.txt') 
     os.system('cp tmp.txt '+matrixZ)    
     
-def createZmatrices(complexPDB,ligandResidueName):
+def createZmatrices(complexPDB,ligandResidueName, pdb_arg, resname_arg):
 
     MCPROscriptsPath = os.path.join(mcproPath,'scripts')
 
@@ -829,9 +831,9 @@ def createZmatrices(complexPDB,ligandResidueName):
     os.system(MCPROscriptsPath+'/xPEPZ '+complexPDBName+'.var')
     os.system(MCPROscriptsPath+'/xPEPZ '+complexPDBName+'.var_conrot')
 
-    fixZmatrix(complexPDBName+'all.z',ligandResidueName)        
-    fixZmatrix(complexPDBName+'var.z',ligandResidueName)        
-    fixZmatrix(complexPDBName+'varcon.z',ligandResidueName)     
+    fixZmatrix(complexPDBName+'all.z',ligandResidueName, pdb_arg, resname_arg)        
+    fixZmatrix(complexPDBName+'var.z',ligandResidueName, pdb_arg, resname_arg)        
+    fixZmatrix(complexPDBName+'varcon.z',ligandResidueName, pdb_arg, resname_arg)     
 
 def relaxProteinLigand(complexPDB,mcproPath):
     
@@ -928,18 +930,18 @@ def addProteinBonds(complexPDB):
     for line in optzmat_data[variable_bonds_index:additional_bonds_index+1]:
         variable_atom_number_list.append(line[0:4])
 
-    print(variable_atom_number_list)
+    # print(variable_atom_number_list)
 
     # now check which lines these are connected to in the top of the zmat
     atom_pairs_list = []
     for line in optzmat_data[first_atom_index:last_atom_index]:
-        print(line[0:4],line[19:23])
+        # print(line[0:4],line[19:23])
         if line[0:4] in variable_atom_number_list:
             connected_atom = line[19:23]
             new_string = line[0:4] + connected_atom
             atom_pairs_list.append(new_string+'\n')
 
-    print(atom_pairs_list)
+    # print(atom_pairs_list)
 
     # now add these pairs of atoms into the additional bonds of varzmat
     line_index = 0
@@ -1009,6 +1011,24 @@ def manageFiles(original_pdb, ligand_resname):
             os.system('mv ' + file + ' ./' + pdb_id + 'other_output/')
         except:
             pass
+
+    # put it all in one folder
+    os.system("mkdir "+pdb_id+'_folder')
+
+    list_of_files = os.listdir(os.getcwd())
+
+    excluded_files = ['.DS_Store', '.ipynb_checkpoints', '__init__.py', 'test_pdb2zmat.py', 'pdb_files', 'further_tests']
+    folder_names = [filename for filename in os.listdir('.') if filename.endswith('_folder')]
+    for folder in folder_names:
+        excluded_files.append(folder)
+
+    for file in list_of_files:
+
+        if file.startswith('original_'):
+            os.system("mv "+file+' ./pdb_files/'+pdb_id+'.pdb')
+
+        elif file not in excluded_files:
+            os.system("mv "+file+' ./'+pdb_id+'_folder')
 
 if __name__ == "__main__":
 
