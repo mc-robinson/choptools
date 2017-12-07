@@ -519,7 +519,7 @@ def mergeLigandWithPDBProtein(mcproPath,complexPDB,ligandZmat,resnumber):
 def generateScript(complexPDB,ligandLstToRemoveFromPDB,residueToBeTheCenterOfTheChopping,setCapOriginAtom,setCutOffSize,HipLstOfResidues,HidLstOfResidues):
 
     lastPart = '''set variable origin ligand
-set variable size 10  
+set variable size 25  
 write pdb aaaa.chop.pdb
 write pepz all aaaa.chop.all.in
 write pepz variable aaaa.chop.var.in
@@ -710,6 +710,8 @@ def getNumberOfTheLastResidueOfTheChoppedSystem(choppedPDBName):
     return resNumber 
 
 def prepareFinalZmatrixWithPEPz(complexPDB,titleOfYourSystem,ligandZmat,fixBackBoneSelection):
+
+    titleOfYourSystem = "PREPARED WITH PDB2ZMAT" # keep this for now
 
     complexPDBName = complexPDB[:-4]
 
