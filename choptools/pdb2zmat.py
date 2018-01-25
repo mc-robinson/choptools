@@ -18,9 +18,8 @@
 #       MCPRO
 #       Reduce executable (http://kinemage.biochem.duke.edu/software/reduce.php)
 #       Propka-3.1 executable (https://github.com/jensengroup/propka-3.1)
-#       Anaconda Python 3.6
-#       The conda choptools-env that can be installed from here (https://github.com/robimc14/choptools)
-#           -This program should be run within that environment
+#       Babel
+#       Python 3.6
 #       
 ######################################################################################################################################
 
@@ -59,6 +58,7 @@ def main():
     Preferably Anaconda python 3.6 with following modules:
     pandas 
     biopandas
+    Babel
     """
     )
 
@@ -139,7 +139,7 @@ def prepare_complex(zmat_arg, pdb_arg, resname_arg, cutoff_arg, his_arg):
 
 
     print('MERGE')
-    mergeLigandWithPDBProtein(mcproPath,fixedComplexPDB,ligandZmat,resnumberLigandOriginal)
+    mergeLigandWithPDBProtein(mcproPath,fixedComplexPDB,ligandZmat,resnumberLigandOriginal,ligandResidueName)
 
     #get histdine lists before chopping
     #can also comment this section out if desired
@@ -498,7 +498,7 @@ def prepareLigandZmatrix(complex,ligandName,mcproPath,BOSSscriptsPath):
 
     return ligandZmat,ligandResnumber,ligandResnumberOriginal#,complexPDBfixName
 
-def mergeLigandWithPDBProtein(mcproPath,complexPDB,ligandZmat,resnumber):
+def mergeLigandWithPDBProtein(mcproPath,complexPDB,ligandZmat,resnumber,resname):
     #clu -t:s=5001 2be2.pdb -r r22_h.z -n 2be2_cplx.pdb
 
     print('Merging ligand with PDB Protein')
@@ -510,7 +510,8 @@ def mergeLigandWithPDBProtein(mcproPath,complexPDB,ligandZmat,resnumber):
     if os.path.isfile(outputPDB): os.remove(outputPDB)
 
     # THIS RESNUMBER MUST BE THE SAME AS BEOFRE 
-    cmd = clu + ' -t:s='+resnumber+' '+complexPDB+' -r '+ligandZmat+' -n '+outputPDB
+    # cmd = clu + ' -t:s='+resnumber+' '+complexPDB+' -r '+ligandZmat+' -n '+outputPDB
+    cmd = cmd = clu + ' -t:s=:'+resname+' '+complexPDB+' -r '+ligandZmat+' -n '+outputPDB
 
     print(cmd)
 
@@ -519,7 +520,7 @@ def mergeLigandWithPDBProtein(mcproPath,complexPDB,ligandZmat,resnumber):
 def generateScript(complexPDB,ligandLstToRemoveFromPDB,residueToBeTheCenterOfTheChopping,setCapOriginAtom,setCutOffSize,HipLstOfResidues,HidLstOfResidues):
 
     lastPart = '''set variable origin ligand
-set variable size 25  
+set variable size 15  
 write pdb aaaa.chop.pdb
 write pepz all aaaa.chop.all.in
 write pepz variable aaaa.chop.var.in
@@ -674,6 +675,8 @@ def prepare_zmats(zmat_arg, pdb_arg, resname_arg):
     generateFinalStructuresWithCAP(fixedComplexPDB) 
 
     addProteinBonds(fixedComplexPDB)
+
+    # fixExludedAtomsList(fixedComplexPDB)
 
     #do some file management
     manageFiles(pdb_arg,resname_arg)   
@@ -960,6 +963,26 @@ def addProteinBonds(complexPDB):
     with open(output_filename,'w') as output_file:
         for line in varzmat_data:
             output_file.write(line)
+
+# def fixExcludedAtomsList(complexPDB):
+
+# 	complexPDBName = complexPDB[:-4]
+# 	filename = 'finalZmatrices/'+complexPDBName+'_final_capcon_zmat.z'
+
+# 	with open(filename) as zmat:
+#         zmat_data = zmat.readlines()
+
+#     index = 0
+#     found = False
+#     for line in zmat_data:
+#     	if 'Excluded Atoms List follows' in line:
+#     		found = True
+#     		break
+#     	index += 1
+
+#     if found:
+#     	if '-1' not in zmat_data[index+1][0:3]:
+
 
 
 
