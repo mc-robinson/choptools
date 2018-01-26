@@ -73,17 +73,19 @@ def main():
     parser.add_argument(
         "-c", "--cutoff", help="Size of the cutoff for chop to cut", type=str)
     parser.add_argument(
+        "-v", "--variable_cutoff", help="Size of the variable cutoff for chop to cut", type=str)
+    parser.add_argument(
         "-t", "--tautomerize", help="Automatically assign Histidine Tautomerization states", action="store_true")
 
     #parse the arguments from standard input
     args = parser.parse_args()
 
-    fixedComplexPDB, ligandZmat = prepare_complex(args.zmat, args.pdb, args.resname, args.cutoff, args.tautomerize)
+    fixedComplexPDB, ligandZmat = prepare_complex(args.zmat, args.pdb, args.resname, args.cutoff, args.variable_cutoff, args.tautomerize)
 
     # note that prepare_zmats takes in the FIXED PDB
     prepare_zmats(ligandZmat, fixedComplexPDB, args.resname)
 
-def prepare_complex(zmat_arg, pdb_arg, resname_arg, cutoff_arg, his_arg):
+def prepare_complex(zmat_arg, pdb_arg, resname_arg, cutoff_arg, variable_cutoff_arg, his_arg):
 
     # preliminary definitions 
     # please only change these if you know what you are doing!
@@ -114,6 +116,11 @@ def prepare_complex(zmat_arg, pdb_arg, resname_arg, cutoff_arg, his_arg):
 
     if cutoff_arg:
         setCutOffSize = str(cutoff_arg)
+
+    if variable_cutoff_arg:
+        setVariableCutOffSize = str(variable_cutoff_arg)
+    else:
+        setVariableCutOffSize = '10'
 
     # *********************** CODE STARTS *********************************************
 
@@ -155,7 +162,7 @@ def prepare_complex(zmat_arg, pdb_arg, resname_arg, cutoff_arg, his_arg):
         print(HidLstOfResidues)
 
     print('CHOP')
-    prepareReducedChopped(fixedComplexPDB,ligandLstToRemoveFromPDB,residueToBeTheCenterOfTheChopping,setCapOriginAtom,setCutOffSize,HipLstOfResidues,HidLstOfResidues)
+    prepareReducedChopped(fixedComplexPDB,ligandLstToRemoveFromPDB,residueToBeTheCenterOfTheChopping,setCapOriginAtom,setCutOffSize,setVariableCutOffSize, HipLstOfResidues,HidLstOfResidues)
 
     return fixedComplexPDB, ligandZmat
 
@@ -517,11 +524,9 @@ def mergeLigandWithPDBProtein(mcproPath,complexPDB,ligandZmat,resnumber,resname)
 
     os.system(cmd)
 
-def generateScript(complexPDB,ligandLstToRemoveFromPDB,residueToBeTheCenterOfTheChopping,setCapOriginAtom,setCutOffSize,HipLstOfResidues,HidLstOfResidues):
+def generateScript(complexPDB,ligandLstToRemoveFromPDB,residueToBeTheCenterOfTheChopping,setCapOriginAtom,setCutOffSize,setVariableCutOffSize, HipLstOfResidues,HidLstOfResidues):
 
-    lastPart = '''set variable origin ligand
-set variable size 15  
-write pdb aaaa.chop.pdb
+    lastPart = ''' write pdb aaaa.chop.pdb
 write pepz all aaaa.chop.all.in
 write pepz variable aaaa.chop.var.in
 write translation aaaa.chop.tt
@@ -560,9 +565,13 @@ EOF
         for ele in ligandLstToRemoveFromPDB:
             tmpScript = tmpScript + 'delete cut :'+ele.lower()+'\n'
 
+    tmpScript = tmpScript + 'set variable origin ligand\n '
+    tmpScript = tmpScript + 'set variable size '+setVariableCutOffSize+'\n'
     tmpScript = tmpScript + 'set minchain 5\n'
     tmpScript = tmpScript + 'fix chains\n'
     tmpScript = tmpScript + 'cap all\n '
+    tmpScript = tmpScript + 'set targetq 0\n '
+    tmpScript = tmpScript + 'fix charges\n '
     
     # if len(HipLstOfResidues)!=0:
     #     lst = ''
@@ -581,14 +590,14 @@ EOF
 
     return tmpScript
 
-def prepareReducedChopped(complexPDB,ligandLstToRemoveFromPDB,residueToBeTheCenterOfTheChopping,setCapOriginAtom,setCutOffSize,HipLstOfResidues,HidLstOfResidues):
+def prepareReducedChopped(complexPDB,ligandLstToRemoveFromPDB,residueToBeTheCenterOfTheChopping,setCapOriginAtom,setCutOffSize,setVariableCutOffSize, HipLstOfResidues,HidLstOfResidues):
 
     print('Preparing Reduced Chopped System')
 
     # update the list of residues to be removed
     complexPDBName = complexPDB[:-4]
 
-    chopScript = generateScript(complexPDB,ligandLstToRemoveFromPDB,residueToBeTheCenterOfTheChopping,setCapOriginAtom,setCutOffSize,HipLstOfResidues,HidLstOfResidues)
+    chopScript = generateScript(complexPDB,ligandLstToRemoveFromPDB,residueToBeTheCenterOfTheChopping,setCapOriginAtom,setCutOffSize,setVariableCutOffSize, HipLstOfResidues,HidLstOfResidues)
 
     fileChopScript = open('chopScript.csh','w')
     fileChopScript.write(chopScript)
