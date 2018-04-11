@@ -1,5 +1,6 @@
 # !/usr/bin/env python
-# File name: smiles_to_ligpargen.py
+# -*- coding: utf-8 -*-
+# File name: test_pdb2zmat.py
 # Author: Matt Robinson
 # Date created: 06/07/2017
 # Date last modified: 06/07/2017
@@ -10,18 +11,22 @@ usage: python test_pdb2zmat.py
 """
 import os
 
-test_list = [['rt_2.pdb','LIG'],
-            ['1zu0.pdb','CBS'],
-            ['2am1.pdb','1LG'],
-            ['5hvs_one_lig.pdb','65V'],
-            ['1a9u.pdb','SB2'],
-            ['1a28_chain_A.pdb','STR'],
-            ['2dbl.pdb','S5H'],
-            ['7tim.pdb','PGH'],
-            ['1a6W.pdb','NIP']]
+# test_list = [['rt_2.pdb','LIG'],
+#             ['1zu0.pdb','CBS'],
+#             ['2am1.pdb','1LG'],
+#             ['5hvs_one_lig.pdb','65V'],
+#             ['1a9u.pdb','SB2'],
+#             ['1a28_chain_A.pdb','STR'],
+#             ['2dbl.pdb','S5H'],
+#             ['7tim.pdb','PGH'],
+#             ['1a6W.pdb','NIP']]
 
 #test_list = [['MIF-180_cplx_orig.cm5.pdb','LIG']]
-#test_list = [['RT_1.pdb','L11']]
+test_list = [['RT_1.pdb','L11']]
+#test_list = [['4w52_no_epe.pdb','BNZ']]
+#test_list = [['full.lys.plus8.OPT-orig.pdb','LIG']]
+#test_list = [['vladas_complex_chain_A.pdb','JLJ']]
+
 
 for l in test_list:
     pdb = l[0]
@@ -31,9 +36,11 @@ for l in test_list:
     os.system('mv pdb_files/' + pdb + ' ./')
 
     try:
-        os.system('python ../choptools/pdb2zmat.py -p ' + pdb + ' -r ' + lig + ' -c 18.0 -t')
+        # os.system('python ../choptools/pdb2zmat_rewrite.py -p ' + pdb + ' -r ' + lig + ' -c 20.0' + " -v 15.0 -s -t --hip 96A 198A --hid 315B 361B")
+        os.system('python ../choptools/pdb2zmat_rewrite.py -p ' + pdb + ' -r ' + lig + ' -c 20.0' + " -v 15.0 -s")
         print('SUCCEEDED ON ' + pdb)
-    except:
+    except Exception as e:
+        print(e)
         print('FAILED ON' + pdb)
 
     # os.system("mkdir "+pdb[0:-4]+'_folder')
