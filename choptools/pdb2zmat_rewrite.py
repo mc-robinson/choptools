@@ -1480,6 +1480,20 @@ def add_protein_bonds(original_pdb_filename):
         for line in varzmat_data:
             output_file.write(line)
 
+    # make a final chopped pdb
+    MCPRO_path = os.environ.get('MCPROdir')
+    clu_path = MCPRO_path +'/miscexec/clu'
+
+    final_chopped_pdb_filename = 'finalZmatrices/'+original_pdb_filename[:-4]+'_final_chopped.pdb'
+
+    clu_cmd = '%s -t %s -n:f=p %s' % (clu_path,output_filename,final_chopped_pdb_filename)
+    try:
+        os.system(clu_cmd)
+    except Exception as e:
+        print(e)
+        print("MCPRO failed to perform the command:", clu_cmd)
+        sys.exit(1) 
+
 # def fixExcludedAtomsList(complexPDB):
 
 #   complexPDBName = complexPDB[:-4]
